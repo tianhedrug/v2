@@ -36,133 +36,150 @@
 								<!-- Text -->
 									<section>
 										
-										<p><b>药物-药物相互作用 (DDI, Drug-Drug Interaction) 是指病人同时或在一定时间内先后服用两种或两种以上药物后会产生复合效应，既可能使药效加强或副作用减轻，也可能使药效减弱或出现毒副作用。</b>
-										<br/><br/>
-									    <b>论文“MUFFIN: Multi-Scale Feature Fusion for Drug–Drug Interaction Prediction”旨在结合药物分子结构和生物医药知识图谱这两种不同视角的药物特征，以解决药物-药物相互作用预测问题。</b></p>
-									    <div class="col-12" align="center"><span class="image fit"><img src="../images/self_image/interaction_prediction.png" alt="" /></span></div>
+<p><b>分子性质预测 (Molecular properties prediction) 是对分子在人体内的ADMET（吸收、分布、代谢、排泄和毒性）等性质进行预测。在药物开发的早期阶段，可以根据分子性质对先导化合物进行有针对性地选取和优化改造，这将有利于提高药物研发的成功率。</b>
+<br/><br/>
+<b>论文“ImageMol: A self-supervised pre-training network based on molecular images”将在百万级分子图像上对模型进行预训练从而增强模型的鲁棒性及泛化能力，随后将预训练好的模型迁移至下游“分子性质预测”任务，通过微调以提高任务的表现。</b></p>
+<div class="col-12" align="center"><span class="image fit"><img src="../images/self_image/property_prediction.jpg" alt="" /></span></div>
 
-									    <h2><b>数据预处理</b></h2>
-										<p><b>针对原始药物特征数据，我们使用 DRKG 知识图谱以及DrugBank中的已批准药物的SMILES字符串。</b></p>
-										<h4><b>获取DRKG知识图谱</b></h4>
-										<pre class = "pre"># 只需要保留 “drkg.tsv” 文件
-wget https://dgl-data.s3-us-west-2.amazonaws.com/dataset/DRKG/drkg.tar.gz</pre>
-<h4><b>获取DrugBank中已批准药物及对应SMILES字符串</b></h4>
-										<pre class = "pre"># 文件需要处理成如下格式：Compound::DB00119 CC(=O)C(O)=O
-https://go.drugbank.com/releases/5-1-8/downloads/approved-structure-links</pre>
-<h4><b>处理数据为指定格式</b></h4>
-<p><b>训练药物-药物相互作用数据集，二分类和多分类数据集均来自于DrugBank</b></p>
-										<pre class="iceCode:python">
-# 注：我们已经提供了默认使用的文件，您也可以按照如下代码自行处理
-python data_process.py -s Your_Smiles_File_Path -kg Your_KG_File_Path -mc Your_Multi_Class_File_Path</pre><br/>
+<h2><b>预训练</b></h2>
+<p><b>预训练阶段用到的数据集为从ZINC数据库提取的两百万的分子数据。</b></p>
+<h4><b>获取两百万分子的SMILES</b></h4>
+<pre class = "iceCode:python"># 以下是数据集的下载路径，预训练数据集在zinc_standard_agent这个文件夹中，我们需要的是原始的SMILES
+wget http://snap.stanford.edu/gnn-pretrain/data/chem_dataset.zip</pre>
+<h4><b>构建分子图像</b></h4>
+<pre class = "pre"># 利用DRKit将SMILES转为分子图像示例
+from rdkit import Chem
+from rdkit.Chem.Draw import rdMolDraw2D
 
-<h2><b>加载数据</b></h2>
-<p><b>MUFFIN模型需要两部分药物特征，生成药物分子结构图的表征向量以及药物在知识图谱中的表征向量。</b></p>
-<h4><b>药物分子结构图的表征向量</b></h4>
+mol = Chem.MolFromSmiles('Cl[C@H](F)NC\C=C\C')
+d = rdMolDraw2D.MolDraw2DCairo(250, 200) # or MolDraw2DSVG to get SVGs
+d.DrawMolecule(mol)
+d.FinishDrawing()
+d.WriteDrawingText('atom_annotation_1.png')</pre>
+<h4><b>进行预训练</b></h4>
 <pre class="iceCode:python">
-# 生成 “gin_supervised_masking_embedding.npy” 文件
-python pretrained_smiles_embedding.py -fi Your_Smiles_File_Path -m gin_supervised_masking -fo csv -sc smiles</pre>
-<h4><b>药物知识图谱的表征向量</b></h4>
+# 运行预训练代码，在本文件中参数及数据路径已设置好，您也可以根据需要设置为自己的数据集文件，具体请看代码
+python FP_cluster_resnet.py</pre><br/>
+
+<h2><b>加载模型</b></h2>
+<p><b>鉴于在大型数据集上进行预训练耗时较长且需要一定数量的设备支持，我们提供了已训练好的模型供大家使用。</b></p>
 <pre class="iceCode:python">
-# 生成 “DRKG_TransE_l2_entity.npy” 文件
-python pretrain_kg_embedding.py --model_name TransE_l2 --dataset DRKG --data_path data/DRKG/ --data_files entities.tsv relations.tsv train.tsv --format udd_hrt --batch_size 2048 --neg_sample_size 128 --hidden_dim 100 --gamma 12.0 --lr 0.1 --max_step 100000 --log_interval 1000 --batch_size_eval 16 -adv --regularization_coef 1.00E-07 --test --num_thread 1 --gpu 1 2 --num_proc 2 --neg_sample_size_eval 10000 --async_update</pre>
-<h4><b>加载训练数据</b></h4>
-<pre class="iceCode:python">
+# 加载预训练好的模型
 import torch
-import torch.utils.data as Data
+import torchvision.models as models
+import os
 
-data = DataLoaderMUFFIN(args, logging)
-n_approved_drug = data.n_approved_drug
-
-# 5-fold
-
-for i in range(5):
-  
-  train_x = torch.from_numpy(data.DDI_train_data_X[i])
-  train_y = torch.from_numpy(data.DDI_train_data_Y[i])
-  test_x = torch.from_numpy(data.DDI_test_data_X[i])
-  test_y = torch.from_numpy(data.DDI_test_data_Y[i])
-
-  torch_dataset_train = Data.TensorDataset(train_x, train_y)
-  torch_dataset_test = Data.TensorDataset(test_x, test_y)
-
-  loader_train = Data.DataLoader(
-    dataset=torch_dataset_train,
-    batch_size=args.DDI_batch_size,
-    shuffle=True
-  )
-  loader_test = Data.DataLoader(
-    dataset=torch_dataset_test,
-    batch_size=args.DDI_evaluate_size,
-    shuffle=True
-  )
-  
-  data_idx = Data.TensorDataset(torch.LongTensor(range(n_approved_drug)))
-  loader_idx = Data.DataLoader(
-    dataset=data_idx,
-    batch_size=128,
-    shuffle=False
-  )</pre><br/>
-  <h2><b>模型定义</b></h2>
-<p><b>模型分为两个特征融合模块，其中包括cross-level以及scalar-level，其封装在muffinModel中。</b></p>
+# 默认checkpoint_path='./model/checkpoints/checkpoint_final.pth.tar'
+if os.path.isfile(checkpoint_path):
+	print("=> loading checkpoint '{}'".format(checkpoint_path))
+	checkpoint = torch.load(checkpoint_path)
+	pre_trained_model = models.resnet18(pretrained=False)
+	pre_trained_model.load_state_dict(checkpoint['state_dict'])
+else:
+	print("=> no checkpoint found at '{}'".format(checkpoint_path))
+	return None</pre>
+<h2><b>分子性质预测</b></h2>
+<p><b>分子性质的数据集来自MolNet数据集，在本工作中用到的数据集分别是BBBP、Tox21、ToxCast、SIDER、ClinTox、MUV、HIV和BACE。</b></p>
+<h4><b>处理数据集</b></h4>
 <pre class="iceCode:python">
-model = muffinModel(args, entity_pre_embed, structure_pre_embed)</pre><br/>
-<h2><b>模型训练和评估</b></h2>
-<h4><b>模型训练阶段核心代码</b></h4>
-<p><b>通过设定args.multi_type，可以指定运行二分类任务[False]还是多分类任务[True]</b></p>
+# 以下是数据集的下载路径，相应的数据集在相应的文件夹中，我们需要的是原始的SMILES
+wget http://snap.stanford.edu/gnn-pretrain/data/chem_dataset.zip
+
+# 以BBBP为例，进入到原始数据的文件夹下面获取标签及smiles
+cd chem_dataset/dataset/bbbp/raw
+
+# 利用DRKit将SMILES转为分子图像示例
+from rdkit import Chem
+from rdkit.Chem.Draw import rdMolDraw2D
+
+mol = Chem.MolFromSmiles('Cl[C@H](F)NC\C=C\C')
+d = rdMolDraw2D.MolDraw2DCairo(250, 200) # or MolDraw2DSVG to get SVGs
+d.DrawMolecule(mol)
+d.FinishDrawing()
+d.WriteDrawingText('atom_annotation_1.png')</pre>
+<h4><b>划分数据集</b></h4>
 <pre class="iceCode:python">
-optimizer = optim.Adam(model.parameters(), lr=args.lr)
-for epoch in range(1,args.n_epoch+1):
-  model.train()
-  ddi_total_loss = 0
-  n_ddi_batch = data.n_ddi_train[i] // args.DDI_batch_size + 1
-  for step, (batch_x, batch_y) in enumerate(loader_train):
-    
-    out = model('calc_ddi_loss', batch_x, loader_idx)
-    
-    if args.multi_type == 'False':
-      # 二分类
-      out = out.squeeze(-1)
-      loss = loss_func(out, batch_y.float())
-    else:
-      # 多分类
-      loss = loss_func(out, batch_y.long())
-    
-    loss.backward()
-    optimizer.step()
-    optimizer.zero_grad()
-    ddi_total_loss += loss.item()</pre>
+# 读取具体数据集的文件
+data_df = pd.read_csv(dataset_file, sep=',', encoding='gbk')
+smiles_list = data_df['smiles']
 
-<h4><b>模型训练阶段核心代码</b></h4>
+# 不同于普通任务的随机划分，性质预测的数据集需要按骨架进行划分
+train_smiles, valid_smiles, test_smiles = random_scaffold_split(smiles_list=smiles_list, seed=split_seed)
+
+# 带标签的数据集
+train_result_smiles = split_dataset(train_smiles, original_file)
+valid_result_smiles = split_dataset(valid_smiles, original_file)
+test_result_smiles = split_dataset(test_smiles, original_file)</pre><br/>
+<h4><b>加载数据集</b></h4>
 <pre class="iceCode:python">
-model.eval()
+# 以训练集为例，验证集、测试集方法类似
+normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
 
-with torch.no_grad():
+train_dataset = DownstreamDataset(image_path, train_result_smiles, transform=transforms.Compose([
+    torchvision.transforms.RandomGrayscale(p=0.2),
+    torchvision.transforms.RandomVerticalFlip(),
+    transforms.ToTensor(),
+    normalize,
+]))
 
-  for data in loader_test:
-
-    test_x, test_y = data
-    
-    out, all_embedding = model('predict', test_x, loader_idx)
-    
-    acc_score, precision_score, recall_score, f1_score, auc_score = calc_metrics(test_y, prediction, out, args.multi_type) </pre>
-<p><b>模型训练之后，我们在测试集上进行结果评估，你可以获得如下类似结果。</b></p>
-<pre class = "pre">5-fold cross validation DDI Mean Evaluation: Precision 0.9912 Recall 0.9913 F1 0.9912 ACC 0.9913 AUC 0.9994</pre>
-<h4><b>完整模型训练</b></h4>
+train_loader = torch.utils.data.DataLoader(
+    train_dataset,
+    batch_size=batch_size,
+    shuffle=True,
+)</pre><br/>
+<h4><b>修改模型结构</b></h4>
+<p><b>由于分子性质预测任务既有二分类任务，也有多分类任务，因此我们需要修改网络结构以适应不同类型的任务。</b></p>
 <pre class="iceCode:python">
-# 二分类任务
-python main.py --—graph_embedding_file data/DRKG/gin_supervised_masking_embedding.npy --entity_embedding_file data/DRKG/DRKG_TransE_l2_entity.npy --multi_type False --out_dim 1
+# 根据不同的任务指定不同的分类数目
+if compound_dataset == "tox21":
+	num_tasks = 12
+elif compound_dataset == "hiv":
+	num_tasks = 1
+elif compound_dataset == "muv":
+	num_tasks = 17
+elif compound_dataset == "bace":
+	num_tasks = 1
+elif compound_dataset == "bbbp":
+	num_tasks = 1
+elif compound_dataset == "toxcast":
+	num_tasks = 617
+elif compound_dataset == "sider":
+	num_tasks = 27
+elif compound_dataset == "clintox":
+	num_tasks = 2
+else:
+	raise ValueError("Invalid dataset name.")
 
-# 多分类任务
-python main.py --—graph_embedding_file data/DRKG/gin_supervised_masking_embedding.npy --entity_embedding_file data/DRKG/DRKG_TransE_l2_entity.npy --multi_type True --out_dim 81 </pre><br/>
+# 加载下游任务网络
+downstream_model = DownStreamNet(pre_trained_model, num_tasks)</pre><br/>
+<h4><b>微调模型</b></h4>
+<pre class="iceCode:python">
+# 设置优化器
+optimizer = torch.optim.SGD(
+			filter(lambda x: x.requires_grad, downstream_model.parameters()),
+			lr=lr,
+			momentum=0.9,
+			weight_decay=wd,
+		)
+
+# 设置损失函数
+criterion = nn.BCEWithLogitsLoss(reduction='none')
+
+# 开始训练
+for epoch in range(1, epochs + 1):
+	downsteam_train(downstream_model, criterion, device, train_loader, optimizer)
+
+	eval_train = True
+	if eval_train:
+		train_acc = eval(downstream_model, device, train_loader)
+	else:
+		print("omit the training accuracy computation")
+		train_acc = 0
+	val_acc = eval(downstream_model, device, valid_loader)
+	test_acc = eval(downstream_model, device, test_loader)</pre><br/>
 <h2><b>引用</b></h2>
-<p><b>如果您对我们的工作感兴趣或者使用了我们的代码，欢迎引用我们的工作：</b></p>
-<pre class = "pre">@article{chen2021muffin,
-  title={MUFFIN: multi-scale feature fusion for drug--drug interaction prediction},
-  author={Chen, Yujie and Ma, Tengfei and Yang, Xixi and Wang, Jianmin and Song, Bosheng and Zeng, Xiangxiang},
-  journal={Bioinformatics},
-  year={2021}
-}
-</pre>
+<p><b>本工作暂未发表，如有兴趣欢迎联系！</b></p>
 									    </div>
 								        </div>
 									</section>
