@@ -1,0 +1,179 @@
+<!DOCTYPE HTML>
+<!--
+	Stellar by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Interaction prediction</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../css/main.css" />
+		<noscript><link rel="stylesheet" href="../css/noscript.css" /></noscript>
+		<link type="text/css" rel="stylesheet" href="../css/elements.css" />
+		<link rel="stylesheet" href="../iceui/src/iceCode.css" />
+        <script src="../iceui/src/iceCode.js"></script>
+       
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<h1>虚拟筛选</h1>
+						<!-- <p>描述</p> -->
+					</header>
+
+				<!-- Main -->
+					<div id="main">
+
+						<!-- Content -->
+							<section id="content" class="main">
+
+								<!-- Text -->
+									<section>
+										
+										<p><b>虚拟筛选(virtual screening，VS)也称计算机筛选，即在进行生物活性筛选之前，利用计算机上的分子对接软件模拟目标靶点与候选药物之间的相互作用，计算两者之间的亲和力大小，以降低实际筛选化合物数目，同时提高先导化合物发现效率。</b>
+										<br/><br/>
+									    <b>论文“Knowledge Graph Enhanced Multi-Task Learning for Molecular Interaction”旨在利用多任务学习的方法，结合多个虚拟筛选任务(DTI and CPI prediction)，从大规模的医学知识图谱中来对相关的靶点预测其可能的产生活性的药物。</b></p>
+									    <div class="col-12" align="center"><span class="image fit"><img src="../images/self_image/kg_mtl.jpg" alt="" /></span></div>
+										<h2><b>数据预处理</b></h2>
+										<p><b>在实验环境中，我们分别使用Human和C.elegans作为CPI预测任务的数据集。</b></p>
+										<pre class = "pre">http://admis.fudan.edu.cn/negative-cpi/</pre>
+<p><b>并使用Drugbank和DrugCentral作为DTI预测任务的数据集。</b></p>
+										<pre class = "pre"># 文件需要处理成如下格式：<http: bio2rdf.org="" drugbank:db15575="">	x-atc	<http: bio2rdf.org="" atc:l01xd07="">
+https://go.drugbank.com/releases/5-1-8/downloads/approved-structure-links</http:></http:></pre>
+<h2><b>加载数据</b></h2>
+<pre class="iceCode:python">
+### process knowledge graph
+def process_kg(args, train_kg, data, adj_list, degrees, use_cuda, sample_nodes=None):
+	g, node_id, edge_type, node_norm, grapg_data, labels = utils.generate_sampled_graph_and_labels(
+		train_kg, args.graph_batch_size, args.graph_split_size, data.num_rels, adj_list, degrees, args.negative_sample, args.edge_sampler, sample_nodes)
+
+	#print('Done edge sampling for rgcn')
+	node_id = torch.from_numpy(node_id).view(-1, 1).long()
+	edge_type = torch.from_numpy(edge_type)
+	edge_norm = utils.node_norm_to_edge_norm(
+		g, torch.from_numpy(node_norm).view(-1, 1))
+	grapg_data, labels = torch.from_numpy(
+		grapg_data), torch.from_numpy(labels)
+	deg = g.in_degrees(range(g.number_of_nodes())).float().view(-1, 1)
+	if use_cuda:
+
+		node_id, deg = node_id.cuda(), deg.cuda()
+		edge_norm, edge_type = edge_norm.cuda(), edge_type.cuda()
+		grapg_data, labels = grapg_data.cuda(), labels.cuda()
+		# test_node_id,test_deg=test_node_id.cuda(),test_deg.cuda()
+		# test_norm,test_rel=test_norm.cuda(),test_rel.cuda()
+	return g, node_id, edge_type, node_norm, grapg_data, labels, edge_norm
+
+### loading raw data
+data = load_data('dataset/kg','datasetdti_task','datasetcpi_task',cpi_dataset=arg.cpi_dataset,dti_dataset=arg.dti_dataset,cpi_gnn=True)</pre>
+  <h2><b>模型定义</b></h2>
+<p><b>模型主要由RGCN，GCN和CNN组成，分别对应于药物靶点，分子图和蛋白质序列的学习。</b></p>
+<pre class="iceCode:python">
+### 详细模型可以参见model.py
+class MKDTI(nn.Module):
+	def __init__(self, **params):
+		# for knowledge graph embedding learning
+		construct_rgcn_net()
+		# embedding layer for molecule graph
+		construct_gcn_net()
+		# protein sequence representation using cnn
+		construct_cnn_net()
+		construct_shared_unit()</pre><br/>
+<h2><b>模型训练</b></h2>
+<p><b>模型训练阶段核心代码。</b></p>
+<pre class="iceCode:python">
+for epoch in range(args.n_epochs):
+early_stop += 1
+if early_stop >= 10:
+	print(
+		'After 10 consecutive epochs, the model stops training because the performance has not improved!')
+	break
+loss_model.train()
+if use_cuda:
+	loss_model.cuda()
+g, node_id, edge_type, node_norm, grapg_data, labels, edge_norm = process_kg(
+	args, train_kg, data, adj_list, degrees, use_cuda, sample_nodes=list(data.sample_nodes))
+loss_epoch_cpi = 0
+loss_epoch_dti = 0
+loss_epoch_total = 0
+# 修改出来dti pairs
+for (compounds, proteins, cpi_labels, compoundids) in graph_data_iter(batch_size, data.train_set_gnn, data.protein2seq):
+	cpi_labels = torch.from_numpy(cpi_labels).float().cuda()
+	loss_total, loss_cpi, loss_dti, cpi_pred, dti_pred, loss_params = loss_model(g, node_id, edge_type, edge_norm,
+																					compounds, torch.LongTensor(proteins).cuda()compoundids, drug_entities, target_entitiessmiles2graph=data.smiles2graphcpi_labels=cpi_labels, dti_labels=dti_labelmode=args.loss_mode
+	loss_total.backward()
+	# torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_norm)
+	optimizer_global.step()
+	optimizer_global.zero_grad()
+	loss_epoch_total += loss_total
+	loss_epoch_cpi += loss_cpi
+	loss_epoch_dti += loss_dti</pre>
+<h2><b>模型评估</b></h2>
+<pre class="iceCode:python">
+def eval_cpi_2(y_pred,labels):
+    labels=np.array(labels.detach().cpu())
+    y_pred=np.array(y_pred.detach().cpu())
+    #y_pred_labels=y_pred.argmax(axis=1)
+    y_pred_labels=np.array([0 if i < 0.5 else 1 for i in y_pred])
+    #y_score=np.array([y_pred[i,index] for i,index in enumerate(y_pred_labels)])
+    acc=accuracy_score(labels,y_pred_labels)
+    roc_score=roc_auc_score(labels,y_pred)
+    pre_score=precision_score(labels,y_pred_labels)
+    recall=recall_score(labels,y_pred_labels)
+    pr,re,_=precision_recall_curve(labels,y_pred,pos_label=1)
+    aupr=auc(re,pr)
+    return acc,roc_score,pre_score,recall,aupr</pre>
+<h4><b>完整模型训练</b></h4>
+<pre class="iceCode:python">
+python main.py --loss_mode weighted --variant KG-MTL-C --gpu 1 --cpi_dataset human --dti_dataset drugcentral</pre><br/>
+<h2><b>引用</b></h2>
+<p><b>如果您对我们的工作感兴趣或者使用了我们的代码，欢迎引用我们的工作：</b></p>
+<pre class = "pre">@ARTICLE{9815157,
+	author={Ma, Tengfei and Lin, Xuan and Song, Bosheng and Yu, Philip S. and Zeng, Xiangxiang},
+	journal={IEEE Transactions on Knowledge and Data Engineering}, 
+	title={KG-MTL: Knowledge Graph Enhanced Multi-Task Learning for Molecular Interaction}, 
+	year={2023},
+	volume={35},
+	number={7},
+	pages={7068-7081},
+	keywords={Drugs;Feature extraction;Task analysis;Diffusion tensor imaging;Knowledge engineering;Semantics;Multitasking;Machine learning;knowledge graph;multi-task learning;drug discovery},
+	doi={10.1109/TKDE.2022.3188154}}
+</pre>
+									    </div>
+								        </div>
+									</section>
+
+									
+					</div>
+
+				<!-- Footer -->
+					<footer id="footer">
+						<!-- <p class="copyright">&copy; Untitled. Design: <a href="https://html5up.net" target="_blank">HTML5 UP</a>.</p>
+						<section id="footer"> -->
+							<p class="copyright">
+								<a href="http://csee.hnu.edu.cn/" target="_blank">College of Computer and Electronic Engineering | Hunan University</a>
+							</p>
+							<p class="copyright">Computer and Electronic Engineering Building, Hunan University, Changsha, China, 410082<br />Copyright © Bioinfirmatics And Health AI Group @ Hunan University. Adapted from HTML5 UP</p>
+					
+					</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../js/jquery.min.js"></script>
+			<script src="../js/jquery.scrollex.min.js"></script>
+			<script src="../js/jquery.scrolly.min.js"></script>
+			<script src="../js/browser.min.js"></script>
+			<script src="../js/breakpoints.min.js"></script>
+			<script src="../js/util.js"></script>
+			<script src="../js/main.js"></script>
+			<script>ice.code.light();</script>
+
+	</body>
+</html>

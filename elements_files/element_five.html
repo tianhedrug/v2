@@ -1,0 +1,124 @@
+<!DOCTYPE HTML>
+<!--
+	Stellar by HTML5 UP
+	html5up.net | @ajlkn
+	Free for personal and commercial use under the CCA 3.0 license (html5up.net/license)
+-->
+<html>
+	<head>
+		<title>Interaction prediction</title>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+		<link rel="stylesheet" href="../css/main.css" />
+		<noscript><link rel="stylesheet" href="../css/noscript.css" /></noscript>
+		<link type="text/css" rel="stylesheet" href="../css/elements.css" />
+		<link rel="stylesheet" href="../iceui/src/iceCode.css" />
+        <script src="../iceui/src/iceCode.js"></script>
+       
+	</head>
+	<body class="is-preload">
+
+		<!-- Wrapper -->
+			<div id="wrapper">
+
+				<!-- Header -->
+					<header id="header">
+						<h1>分子生成</h1>
+						<!-- <p>描述</p> -->
+					</header>
+
+				<!-- Main -->
+					<div id="main">
+
+						<!-- Content -->
+							<section id="content" class="main">
+
+								<!-- Text -->
+									<section>
+										
+										<p><b>分子生成或者优化（molecular genration/optimization）, 旨在识别或者生成目标分子，表现出改进的药理学特性，同时保持其与原始分子的相似性。</b>
+										<br/><br/>
+									    <b>论文“GPMO: Gradient Perturbation-Based Contrastive Learning for Molecule Optimization”优化一个分子进入另一个具有更好性能的分子，同时保持骨架并表现出更理想的性质。</b></p>
+									    <div class="col-12" align="center"><span class="image fit"><img src="../images/self_image/MO.png" alt="" /></span></div>
+
+									    <h2><b>数据预处理</b></h2>
+										<p><b>下载预训练数据集和模型权重文件。</b></p>
+										<h4><b>创建文件夹用于存储</b></h4>
+<pre class="iceCode:python">cd experiments
+mkdir evaluation_transformer #create folder for evaluation
+mkdir train_transformer/checkpointpretrain  #create folder for pretraining checkpoint</pre>
+										<p><b>下载 <a href="https://drive.google.com/file/d/1X6aTxecoFwkmtMQb2-d8KMXlU2IpAg5Z/view?usp=share_link">预训练权重</a> ，并把它放到pretraining checkpoint中。 </b></p>
+										<pre class="iceCode:python">mkdir  train_transformer/checkpoint #create folder for finetune checkpoint.</pre>
+										<h4><b>如果你想用自定义数据</b></h4>
+										<pre class = "pre">python preprocess_prop.py --input-data-path data/data_name/data.csv</pre>
+
+<h2><b>模型训练</b></h2>
+<p><b>训练模型并且将结果和日志保存至experiments/save_directory/; 每个epoch的模型保存在 experiments/save_directory/checkpoint/; 训练损失、验证损失和精度保存在 experiments/save_directory/tensorboard/。</b></p>
+<pre class="iceCode:python">
+python trainper.py --data-path data/chembl_02 --save-directory train_transformer --model-choice transformer transformer</pre>
+	<p><b>预训练好的Transformer模型保存在 <a href="https://zenodo.org/record/5571965#.YWmMoZpBybi"> 这里</a>。</b></p>
+<h2><b>生成分子</b></h2>
+<p><b>使用给定轮次(e.g. 60)保存好的模型生成分子, 将结果保存到 experiments/save_directory/test_file_name/evaluation_epoch/generated_molecules.csv. 我们论文所使用的三个数据集保存在 data/chembl_02/ 中。</b></p>
+<pre class="iceCode:python">
+python generate.py --model-choice transformer --data-path baseline_dataset_modof/ --test-file-name test --model-path experiments/train_transformer/checkpoint --save-directory evaluation_transformer --epoch 60</pre>
+<h2><b>计算生成分子的性质</b></h2>
+<p><b>由于使用的是内部数据集，不能公开，但计算的性质可以在以下文件中找到experiments/evaluation_transformer/test_file_name/evaluation_60/generated_molecules_prop.csv。</b></p>
+<h2><b>评估生成分子并且可视化</b></h2>
+<pre class="iceCode:python">
+python evaluate.py --data-path experiments/evaluation_transformer/test/evaluation_60/generated_molecules_prop.csv</pre>
+<h2><b>起始分子和生成分子的匹配分子对分析</b></h2>
+<p><b>下载mmpdb用于匹配分子对分析。</b></p>
+<pre class="iceCode:python">
+# Between starting molecules and all the generated molecules
+python mmp_analysis.py --data-path experiments/evaluation_transformer/test/evaluation_130/generated_molecules.csv  --train-path data/chembl_02/train_dmo_prop_encoded.csv --mmpdb-path path/mmpdb/
+# Between starting molecules and all the generated molecules with desirable properties
+python mmp_analysis.py --data-path experiments/evaluation_transformer/test/evaluation_130/generated_molecules_statistics.csv --train-path data/chembl_02/train.csv --mmpdb-path path/mmpdb/ --only-desirable</pre>
+
+<h2><b>引用</b></h2>
+<p><b>如果您对我们的工作感兴趣或者使用了我们的代码，欢迎引用我们的工作：</b></p>
+<pre class = "pre">@inproceedings{10.24963/ijcai.2023/549,
+	author = {Yang, Xixi and Fu, Li and Deng, Yafeng and Liu, Yuansheng and Cao, Dongsheng and Zeng, Xiangxiang},
+	title = {GPMO: gradient perturbation-based contrastive learning for molecule optimization},
+	year = {2023},
+	isbn = {978-1-956792-03-4},
+	url = {https://doi.org/10.24963/ijcai.2023/549},
+	doi = {10.24963/ijcai.2023/549},
+	booktitle = {Proceedings of the Thirty-Second International Joint Conference on Artificial Intelligence},
+	articleno = {549},
+	numpages = {9},
+	location = {<conf-loc>, <city>Macao</city>, <country>P.R.China</country>, </conf-loc>},
+	series = {IJCAI '23}
+	}
+</pre>
+									    </div>
+								        </div>
+									</section>
+
+									
+					</div>
+
+				<!-- Footer -->
+					<footer id="footer">
+						<!-- <p class="copyright">&copy; Untitled. Design: <a href="https://html5up.net" target="_blank">HTML5 UP</a>.</p>
+						<section id="footer"> -->
+							<p class="copyright">
+								<a href="http://csee.hnu.edu.cn/" target="_blank">College of Computer and Electronic Engineering | Hunan University</a>
+							</p>
+							<p class="copyright">Computer and Electronic Engineering Building, Hunan University, Changsha, China, 410082<br />Copyright © Bioinfirmatics And Health AI Group @ Hunan University. Adapted from HTML5 UP</p>
+					
+					</footer>
+
+			</div>
+
+		<!-- Scripts -->
+			<script src="../js/jquery.min.js"></script>
+			<script src="../js/jquery.scrollex.min.js"></script>
+			<script src="../js/jquery.scrolly.min.js"></script>
+			<script src="../js/browser.min.js"></script>
+			<script src="../js/breakpoints.min.js"></script>
+			<script src="../js/util.js"></script>
+			<script src="../js/main.js"></script>
+			<script>ice.code.light();</script>
+
+	</body>
+</html>

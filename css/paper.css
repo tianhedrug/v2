@@ -1,0 +1,124 @@
+/* 模块盒模型 */
+.box{background:#fff;box-shadow: 0 1px 6px 0 rgb(0 0 0 / 0.03);margin-bottom:15px;border-radius: 7px;overflow: hidden;}
+.box-title{height:45px;line-height:45px;padding:0 20px;font-size:16px;border-bottom:1px solid #f3f3f3;white-space:nowrap;text-overflow:ellipsis;}
+.box-title::before{content:'';display:inline-block;width:17px;height:17px;margin-right:8px;border-radius:50%;border:3px solid var(--tpl);float:left;vertical-align:middle;margin-top:14px;}
+.box-title .box-title-menu a{color:#353535;font-size:15px;padding:0 10px;height:45px;line-height:45px;display:inline-block;border-left:1px solid #e7e7e7;}
+.box-title>a{color:var(--tpl);position:relative;}
+.box-title>a::after{content:'';display:inline-block;height:1px;width:0;background:var(--tpl);position:absolute;bottom:-2px;left:0;right:0;margin:0 auto;transition:all .3s;}
+.box-title>a:hover::after{width:100%;}
+.box-title .left{margin-right:8px;}
+.box-title .left+.left,.box-title a+a{margin-left:8px;}
+.box-title .left a{color:#353535;font-size:15px;margin-right:20px;}
+.box-title .box-title-menu a:hover{color:#1ABAE0;}
+.box-title .left a:hover{color:#00AFB9;}
+.box-title .box-title-menu a.btn{color:#ffffff;font-size:15px;padding:0 20px;height:30px;line-height:30px;display:inline-block;border-left:1px solid #e7e7e7;vertical-align:initial;}
+.box-content{padding:20px;position:relative;background:inherit;}
+.box-content:before,.box-content:after{content:" ";display:table;}
+.box-content:after{clear:both;}
+.box-content>.title-t1:first-child,.tab-content>.title-t1:first-child{margin-top:10px;}
+@media (max-width:768px){
+	.box{margin:0 15px 15px;}
+	.box-title{padding:0 15px;}
+	.box-content{padding:15px;}
+}
+
+.list-time a{
+	color: #d52349;
+}
+#main {
+    color: black;
+}
+
+.list .list-title {
+    font-size: 18px;
+}
+.left{
+	font-size: 22px;
+}
+
+.box-title {
+    border-bottom: 0.07rem solid #f3f3f3;
+}
+.list .list-item {
+    border-bottom: 0.07rem dashed #5d677c;
+}
+/* Footer */
+
+	#footer {
+		display: -moz-flex;
+		display: -webkit-flex;
+		display: -ms-flex;
+		display: flex;
+		-moz-flex-wrap: wrap;
+		-webkit-flex-wrap: wrap;
+		-ms-flex-wrap: wrap;
+		flex-wrap: wrap;
+		padding: 5em 5em 3em 5em ;
+		width: calc(100% + 5em);
+		margin: 0 0 1em -2em;
+	}
+
+		#footer > * {
+			width: calc(50% - 2em);
+			margin-left: 2em;
+		}
+
+		#footer .copyright {
+			width: 100%;
+			margin: 0.5em 0 0.5em 0;
+			font-size: 1em;
+			text-align: center;
+		}
+
+		@media screen and (max-width: 1280px) {
+
+			#footer {
+				padding: 4em 4em 2em 4em ;
+			}
+
+		}
+
+		@media screen and (max-width: 980px) {
+
+			#footer {
+				padding: 4em 3em 2em 3em ;
+				display: block;
+				margin: 0 0 3em 0;
+				width: 100%;
+			}
+
+				#footer > * {
+					width: 100%;
+					margin-left: 0;
+					margin-bottom: 3em;
+				}
+
+				#footer .copyright {
+					text-align: left;
+				}
+
+		}
+
+		@media screen and (max-width: 736px) {
+
+			#footer {
+				padding: 3em 2em 1em 2em ;
+			}
+
+		}
+
+		@media screen and (max-width: 480px) {
+
+			#footer {
+				padding: 3em 1.5em 1em 1.5em ;
+			}
+
+		}
+
+		@media screen and (max-width: 480px) {
+
+			#footer {
+				padding: 2.5em 1em 0.5em 1em ;
+			}
+
+		}
